@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>View Processed Video</title>
+</head>
+<body>
+    <video controls>
+        <source src="{{ url_for('serve_video', filename=filename) }}" type="video/mp4">
+    </video>
+    <p><a href="{{ url_for('serve_video', filename=filename) }}">Click here to download the annotated video</a></p>
+</body>
+</html>
