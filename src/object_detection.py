@@ -4,6 +4,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 from pycocotools.coco import COCO
 import requests
+import cv2
 
 # load COCO categories
 COCO_INSTANCE_CATEGORY_URL = "https://raw.githubusercontent.com/amikelive/coco-labels/master/coco-labels-paper.txt"
@@ -20,8 +21,9 @@ preprocess = transforms.Compose([
     transforms.ToTensor()
 ])
 
-def detect_objects(image_path):
-    image = Image.open(image_path)
+def detect_objects(frame):
+    # convert OpenCV image to PIL
+    image = Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
     # process the image
     image_tensor = preprocess(image)
@@ -32,11 +34,12 @@ def detect_objects(image_path):
         prediction = model(image_tensor)
 
     # labels, confidence scores, and bounding boxes
-    labels = prediction[0]['labels']
-    scores = prediction[0]['scores']
-    boxes = prediction[0]['boxes']
+    detected_objects = []
+    for label, score, box in zip(prediction[0]['labels'], prediction[0]['scores'], prediction[0]['boxes']):
+        label_name = COCO_LABELS[label]
+        detected_objects.append((label_name, score.item(), box.tolist()))
 
-    # convert to lists for simplicity
-    detected_objects = [{'label': COCO_LABELS[label.item()], 'confidence': score.item(), 'bbox': box.tolist()} for label, score, box in zip(labels, scores, boxes) if score.item() > 0.9]  # Confidence threshold
+    # # convert to lists for simplicity
+    # detected_objects = [{'label': COCO_LABELS[label.item()], 'confidence': score.item(), 'bbox': box.tolist()} for label, score, box in zip(labels, scores, boxes) if score.item() > 0.9]  # Confidence threshold
     
     return detected_objects

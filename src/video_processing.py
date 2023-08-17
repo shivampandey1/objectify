@@ -3,8 +3,19 @@ import subprocess
 from object_detection import detect_objects
 import os
 import shutil
+from flask import jsonify
+
+# global variable to store progress
+progress = 0
+def get_progress():
+    global progress
+    return progress
 
 def process_video(input_video_path, output_video_path):
+
+    global progress
+    progress = 0
+
     # temp frame directory
     frames_dir = "frames/"
     annotated_frames_dir = "annotated_frames/"
@@ -14,39 +25,71 @@ def process_video(input_video_path, output_video_path):
     # extract frames using FFmpeg
     print('extracting frames')
     extract_command = f"ffmpeg -i {input_video_path} -vf fps=30 {frames_dir}frame_%03d.jpg"
-    subprocess.run(extract_command, shell=True)
+    subprocess.call(extract_command, shell=True)
 
-    # process frames
-    frame_files = sorted(os.listdir(frames_dir))
-    total_frames = len(frame_files)
-    counter=0
-    for frame_file in frame_files:
-        print(f"processing frame {counter} of  {total_frames}")
-        counter+=1
-        frame_path = os.path.join(frames_dir, frame_file)
+    # transcode into multiple qualities
+    qualities = [(1280, 720), (640, 360)]  # example resolutions (HD and SD)
+    for width, height in qualities:
+        transcoded_path = os.path.join(frames_dir, f"{width}x{height}")
+        os.makedirs(transcoded_path, exist_ok=True)
+        transcoding_command = f"ffmpeg -i {frames_dir}frame_%03d.jpg -vf scale={width}:{height} {transcoded_path}/frame_%03d.jpg"
+        subprocess.call(transcoding_command, shell=True)
 
-        # object detection
-        detected_objects = detect_objects(frame_path)
+    # annotate frames with bounding boxes for each quality level
+    for width, height in qualities:
+        transcoded_path = os.path.join(frames_dir, f"{width}x{height}")
+        annotated_path = os.path.join(annotated_frames_dir, f"{width}x{height}")
+        os.makedirs(annotated_path, exist_ok=True)
+        counter = 0
+        total_frames = len(os.listdir(transcoded_path))
+        for frame_file in os.listdir(transcoded_path):
+            frame_path = os.path.join(transcoded_path, frame_file)
+            frame = cv2.imread(frame_path)
+            print(f"processing frame {counter} of  {total_frames}")
+            # track progress and update the global variable
+            progress = (counter / total_frames) * 100
+            counter += 1
+            detected_objects = detect_objects(frame)
+            for obj in detected_objects:
+                label, confidence, box = obj
+                if confidence > 0.75:  # only include confident detections
+                    x_min, y_min, x_max, y_max = map(int, box)  # convert to integer
+                    x, y, w, h = x_min, y_min, x_max - x_min, y_max - y_min
+                    cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
+                    cv2.putText(frame, f"{label}: {confidence:.2f}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 2)
+            annotated_frame_path = os.path.join(annotated_path, frame_file)
+            cv2.imwrite(annotated_frame_path, frame)
 
-        # read frames with OpenCV
-        frame = cv2.imread(frame_path)
 
-        # annotate frames with bounding boxes, labels, confidence scores
-        for detection in detected_objects:
-            label, confidence, bbox = detection['label'], detection['confidence'], detection['bbox']
-            cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])), color=(0, 255, 0), thickness=2)
-            cv2.putText(frame, f"{label}: {confidence:.2f}%", (int(bbox[0]), int(bbox[1]) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+    # reassemble annotated frames into HD and SD video for HLS
+    for width, height in qualities:
+        annotated_path = os.path.join(annotated_frames_dir, f"{width}x{height}")
+        reassemble_command = (
+            f"ffmpeg -i {annotated_path}/frame_%03d.jpg -vcodec libx264 -crf 25 "
+            f"-b:v 1024k -strict experimental -f hls {annotated_path}/index.m3u8"
+            )
+        subprocess.call(reassemble_command, shell=True)
 
-        # save the annotated frame
-        annotated_frame_path = os.path.join(annotated_frames_dir, frame_file)
-        cv2.imwrite(annotated_frame_path, frame)
+    print('video processing complete')
+    # reset progress to 100% at the end
+    progress = 100
 
-    # reassemble frames
-    print('reassembling video')
-    reassemble_command = f"ffmpeg -framerate 30 -i {annotated_frames_dir}frame_%03d.jpg -c:v libx264 -pix_fmt yuv420p {output_video_path}"
-    subprocess.run(reassemble_command, shell=True)
+# master playlist defintion
+def create_master_playlist(hd_playlist, sd_playlist, master_playlist_path):
+    with open(master_playlist_path, 'w') as master_file:
+        master_file.write("#EXTM3U\\n")
+        master_file.write(f"#EXT-X-STREAM-INF:BANDWIDTH=8000000,RESOLUTION=1280x720\\n{hd_playlist}\\n")
+        master_file.write(f"#EXT-X-STREAM-INF:BANDWIDTH=4000000,RESOLUTION=640x360\\n{sd_playlist}\\n")
 
-    # clean up temporary directories
-    shutil.rmtree(frames_dir)
-    shutil.rmtree(annotated_frames_dir)
-    print('finished processing of video')
+# paths for frames and playlists
+annotated_frames_dir = "annotated_frames/"
+master_playlist_path = os.path.join(annotated_frames_dir, 'master_playlist.m3u8')
+hd_playlist = os.path.join(annotated_frames_dir, '1280x720', 'index.m3u8')
+sd_playlist = os.path.join(annotated_frames_dir, '640x360', 'index.m3u8')
+
+create_master_playlist(hd_playlist, sd_playlist, master_playlist_path)
+
+
+
+
+

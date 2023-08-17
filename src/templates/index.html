@@ -1,12 +1,45 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Upload Video</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Objectify</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.3/dist/tailwind.min.css" rel="stylesheet">
+    <script>
+        function updateProgress() {
+            fetch('/progress')
+                .then(response => response.json())
+                .then(data => {
+                    var progressValue = data.progress;
+                    document.getElementById('progressBar').style.width = progressValue + '%';
+                    document.getElementById('progressText').innerText = progressValue + '%';
+                    if (progressValue >= 100) {
+                    // hide progress container when complete
+                    document.getElementById('progressContainer').classList.add('hidden');
+                    }
+                });
+        }
+
+    
+        // show the progress bar and start updating
+        function startProgress() {
+            document.getElementById('progressContainer').classList.remove('hidden');
+            setInterval(updateProgress, 1000);
+        }
+    </script>    
+    
 </head>
-<body>
-    <form action="/" method="post" enctype="multipart/form-data">
-        <input type="file" name="file">
-        <input type="submit" value="Upload and Process">
-    </form>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-8">
+        <h1 class="text-3xl font-bold mb-4">Upload Video for Object Detection</h1>
+        <form action="/" method="post" enctype="multipart/form-data" class="bg-white p-6 rounded shadow-md">
+            <input type="file" name="file" class="mb-4">
+            <button type="submit" onclick="startProgress()" class="bg-blue-500 text-white p-2 rounded">Upload Video</button>
+        </form>
+        <div id="progressContainer" class="hidden bg-white p-4 rounded shadow-md">
+            <div id="progressBar" class="bg-blue-500" style="width: 0%; height: 20px;"></div>
+            <span id="progressText" class="text-gray-700 ml-2">0%</span>
+        </div>
+    </div>
 </body>
 </html>

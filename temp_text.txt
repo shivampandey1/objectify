@@ -1,1 +1,0 @@
-Detected label: 890, Confidence: 7.7396321296691895

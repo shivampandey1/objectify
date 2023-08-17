@@ -1,12 +1,60 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>View Processed Video</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Video</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.0.3/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script> <!-- HLS.js library -->
 </head>
 <body>
-    <video controls>
-        <source src="{{ url_for('serve_video', filename=filename) }}" type="video/mp4">
-    </video>
-    <p><a href="{{ url_for('serve_video', filename=filename) }}">Click here to download the annotated video</a></p>
+    <div class="container mx-auto p-8">
+        <h1 class="text-3xl font-bold mb-4">View Processed Video</h1>
+        <div class="bg-white p-6 rounded shadow-md">
+            <select id="resolution" onchange="changeResolution()" class="mb-4 p-2 rounded border">
+                <option value="hd">HD</option>
+                <option value="sd">SD</option>
+            </select>
+            <video id="video" controls class="mb-4 w-full"></video>
+            <a id="downloadLink" class="bg-blue-500 text-white p-2 rounded" href="#">Download</a>
+        </div>
+    </div>
+
+
+    <script>
+        var hd_playlist_url = '{{ hd_playlist_url }}';
+        var sd_playlist_url = '{{ sd_playlist_url }}';
+    </script>
+
+    {% raw %}
+    <script>
+        var video = document.getElementById('video');
+        var downloadLink = document.getElementById('downloadLink');
+        var hls = new Hls();
+
+        // change resolution based on the dropdown selection
+        function changeResolution() {{
+            var resolution = document.getElementById('resolution').value;
+            // select playlist URL based on chosen resolution
+            var url = (resolution === 'hd') ? hd_playlist_url : sd_playlist_url;
+            downloadLink.href = url; // update download link with selected video URL
+            if (Hls.isSupported()) {{
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {{
+                    video.play();
+                }});
+            }} else if (video.canPlayType('application/vnd.apple.mpegurl')) {{
+                video.src = url;
+                video.addEventListener('loadedmetadata', function() {{
+                    video.play();
+                }});
+            }}
+        }}
+
+        // trigger resolution change to load the default option (HD)
+        changeResolution();
+    </script>
+    {% endraw %}
 </body>
 </html>
