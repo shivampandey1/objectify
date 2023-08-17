@@ -35,9 +35,7 @@ Objectify is a web application designed to process video files by performing obj
 - **FFmpeg**: Used for video frame extraction and transcoding.
 - **OpenCV**: Utilized for image processing and object detection.
 - **Tailwind CSS**: Applies styling to the frontend interface.
-- **HLS.js**: JavaScript library to handle HLS playback in the browser.
-
-Certainly! Here are the "How to Use" and "Dependencies" sections that can be added to the README:
+- **HLS.js**: JavaScript library to handle HLS playback in the browser
 
 ---
 ## How to Use
@@ -88,4 +86,4 @@ Objectify relies on several libraries and tools. The main dependencies are:
 
 All Python dependencies can be installed using the provided `requirements.txt` file.
 
-For FFmpeg, you'll need to install it separately on your system. Instructions for installation can be found on the [official FFmpeg website](https://ffmpeg.org/download.html).
+For FFmpeg, needs to be installed seperately. Instructions for installation can be found on the [official FFmpeg website](https://ffmpeg.org/download.html).
